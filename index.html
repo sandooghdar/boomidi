@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>بومیدی | پیام ناشناس</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+<style>
+  :root { --orange:#f97316; --orange-soft:#fff1e6; --navy:#1e3a5f; --bg:#f5f6f8; --line:#e8eaee; --text:#22303f; --muted:#7b8794; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { font-family:'Vazirmatn',system-ui,sans-serif; background:var(--bg); color:var(--text); direction:rtl; min-height:100vh; }
+  .wrap { max-width:480px; margin:0 auto; padding:18px 16px 40px; }
+  .head { background:linear-gradient(135deg,var(--navy),#2c5483); border-radius:0 0 24px 24px; color:#fff; text-align:center; padding:26px 18px 22px; margin:-18px -16px 18px; }
+  .head .logo { font-size:22px; font-weight:700; }
+  .head .logo span { background:#fff; border-radius:50%; display:inline-flex; width:34px; height:34px; align-items:center; justify-content:center; margin-inline-end:8px; font-size:20px; }
+  .head p { font-size:12.5px; line-height:2; opacity:.8; margin-top:8px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:20px; padding:20px 16px; }
+  .lbl { font-size:13.5px; font-weight:700; color:var(--navy); margin-bottom:10px; }
+  input.code {
+    width:100%; direction:ltr; text-align:center; letter-spacing:8px; text-transform:uppercase;
+    font-family:inherit; font-size:22px; font-weight:700; color:var(--navy);
+    border:1.5px solid var(--line); border-radius:14px; padding:13px; outline:none;
+  }
+  input.code:focus { border-color:var(--orange); }
+  textarea {
+    width:100%; min-height:170px; margin-top:14px; resize:vertical;
+    font-family:inherit; font-size:14px; line-height:2.1; color:var(--text);
+    border:1.5px solid var(--line); border-radius:16px; padding:14px; outline:none;
+  }
+  textarea:focus { border-color:var(--orange); }
+  button.send {
+    width:100%; margin-top:16px; border:none; cursor:pointer;
+    background:linear-gradient(135deg,#fb923c,#f97316); color:#fff;
+    font-family:inherit; font-size:16px; font-weight:700; padding:15px; border-radius:16px;
+    box-shadow:0 6px 16px rgba(249,115,22,.35);
+  }
+  button.send:active { transform:scale(.985); }
+  button.send[disabled] { opacity:.6; }
+  .status { text-align:center; font-size:12px; color:var(--muted); margin-top:12px; line-height:2; }
+  .status .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#c3c9d2; margin-inline-end:6px; }
+  .status .dot.on { background:#4ade80; }
+  .note { margin-top:16px; background:var(--orange-soft); border-radius:16px; padding:14px 16px; font-size:12px; line-height:2; color:var(--navy); }
+  .done { display:none; text-align:center; padding:30px 10px; }
+  .done .big { font-size:52px; }
+  .done h2 { font-size:17px; color:var(--navy); margin:12px 0 6px; }
+  .done p { font-size:13px; color:var(--muted); line-height:2; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="logo"><span>🙃</span>بومیدی</div>
+    <p>پیام ناشناس بفرست؛ بدون اسم، بدون شماره، بدون رودربایستی</p>
+  </div>
+
+  <div class="card" id="formBox">
+    <div class="lbl">کد صندوق طرف مقابل:</div>
+    <input class="code" id="code" maxlength="6" placeholder="AB12CD" autocomplete="off">
+    <textarea id="msg" placeholder="هر حرفی که داری رو با مهربونی بنویس…"></textarea>
+    <button class="send" id="sendBtn" onclick="send()">📨 ارسال ناشناس</button>
+    <div class="status"><span class="dot" id="dot"></span><span id="st">آماده</span></div>
+  </div>
+
+  <div class="card done" id="doneBox">
+    <div class="big">✅</div>
+    <h2>پیامت ناشناس رسید!</h2>
+    <p>هیچ اسم و شماره‌ای ثبت نشد.<br>می‌تونی این صفحه رو ببندی.</p>
+  </div>
+
+  <div class="note">💛 اگه اپ «بومیدی» رو روی گوشیت داری، از داخل اپ هم می‌تونی پیام ناشناس بفرستی. این صفحه فقط برای وقتیه که اپ رو نداری — از مرورگر کار می‌کنه.</div>
+</div>
+
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script>
+var BM_BROKER = 'wss://broker.emqx.io:8084/mqtt';
+var codeEl = document.getElementById('code');
+
+// code can arrive in the URL as index.html#AB12CD or ?c=AB12CD
+(function () {
+  var h = location.hash.replace('#', '');
+  if (!h) {
+    var m = location.search.match(/[?&]c=([A-Za-z2-9]{6})/);
+    if (m) h = m[1];
+  }
+  h = h.toUpperCase();
+  if (/^[A-Z2-9]{6}$/.test(h)) codeEl.value = h;
+})();
+
+function st(txt, on) {
+  document.getElementById('st').textContent = txt;
+  document.getElementById('dot').className = 'dot' + (on ? ' on' : '');
+}
+function send() {
+  var code = codeEl.value.trim().toUpperCase();
+  if (!/^[A-Z2-9]{6}$/.test(code)) { alert('کد صندوق باید ۶ حرف/عدد انگلیسی باشد.'); return; }
+  var txt = document.getElementById('msg').value.trim();
+  if (!txt) { alert('متن پیام را بنویس.'); return; }
+  if (!window.mqtt) { alert('کتابخانه بارگذاری نشد؛ اتصال اینترنت را بررسی کن.'); return; }
+  document.getElementById('sendBtn').disabled = true;
+  st('در حال اتصال…', false);
+  var payload = JSON.stringify({ id: 'w' + Date.now().toString(36) + Math.floor(Math.random() * 1000000), t: txt, ts: Date.now() });
+  var c = mqtt.connect(BM_BROKER, { clientId: 'bmw_' + Date.now().toString(36), clean: true });
+  var done = false;
+  function finish(ok) {
+    if (done) return; done = true;
+    if (ok) {
+      document.getElementById('formBox').style.display = 'none';
+      document.getElementById('doneBox').style.display = 'block';
+      try { c.end(true); } catch (e) {}
+    } else {
+      document.getElementById('sendBtn').disabled = false;
+      st('ارسال نشد؛ اینترنت را بررسی کن', false);
+    }
+  }
+  c.on('connect', function () {
+    st('در حال ارسال…', true);
+    c.publish('boomidi/box/' + code, payload, { qos: 1, retain: true }, function () { finish(true); });
+  });
+  c.on('error', function () { finish(false); });
+  setTimeout(function () { finish(false); }, 15000);
+}
+</script>
+</body>
+</html>
